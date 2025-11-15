@@ -13,13 +13,26 @@ api_bp = Blueprint("api", __name__)
 # ensure DB tables exist
 init_db()
 
-# A small local lookup for common place names around IITB.
+# IITB Hostel locations for ambulance pickup (updated coordinates)
 LOCATIONS = {
-    "Gulmohar Park": (72.9118, 19.1342),
-    "IITB Main Gate": (72.9133, 19.1334),
-    "Hiranandani": (72.9196, 19.1292),
-    "Powai Lake": (72.9075, 19.1231),
-    "Kanjurmarg": (72.9500, 19.1390),
+    "Hostel 1 (Queen of the Campus)": (72.9139822, 19.1360511),
+    "Hostel 2 (The Wild Ones)": (72.9125194, 19.1360302),
+    "Hostel 3 (Vitruvians)": (72.9114388, 19.1360347),
+    "Hostel 4 (Madhouse)": (72.910000, 19.136111),  # Keep old coordinate if not provided
+    "Hostel 5 (Penthouse)": (72.9103374, 19.1353150),
+    "Hostel 6 (Vikings)": (72.9070937, 19.1352447),
+    "Hostel 8": (72.9112112, 19.1339352),
+    "Hostel 9 (Pluto)": (72.9081793, 19.1349887),
+    "Hostel 10 (Phoenix)": (72.9159134, 19.1296172),
+    "Hostel 11 (Athena)": (72.9122780, 19.1335136),
+    "Hostel 12 (Crown of the Campus)": (72.9057432, 19.1355082),
+    "Hostel 13 (House of Titans)": (72.9057432, 19.1355082),
+    "Hostel 14 (The Silicon Ship)": (72.9057432, 19.1355082),
+    "Hostel 15 (Trident)": (72.9135782, 19.1374068),
+    "Hostel 16 (Olympus)": (72.9128483, 19.1377654),
+    "Hostel 17 (Kings Landing)": (72.9086540, 19.1348411),
+    "Hostel 18": (72.9094808, 19.1360071),
+    "Tansa": (72.9104464, 19.1357613),
 }
 
 @api_bp.route("/locations", methods=["GET"])
@@ -94,11 +107,22 @@ def create_trip():
     start = (config.HOSPITAL_LNG, config.HOSPITAL_LAT)
     via = (pickup_lng, pickup_lat)
     end = (config.HOSPITAL_LNG, config.HOSPITAL_LAT)
+    
+    print(f"Computing route: Hospital {start} -> Pickup {via} -> Hospital {end}")
+    
     try:
         route_resp = get_route(start, via, end)
     except Exception as e:
         session.close()
-        return jsonify({"error": "ORS route failed", "detail": str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Route generation failed: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({
+            "error": "ORS route failed", 
+            "detail": str(e),
+            "message": "Failed to generate route. Please check server logs for details."
+        }), 500
 
     summary = route_resp.get("summary", {})
     geojson = route_resp.get("geojson")
@@ -164,11 +188,40 @@ def export_trips():
 
 @api_bp.route("/analysis/isochrones", methods=["GET"])
 def isochrones():
-    center = (config.HOSPITAL_LNG, config.HOSPITAL_LAT)
+    # Create isochrones centered at IITB Hospital (19°07'50"N 72°54'51"E)
+    # Limited to IITB campus area using bounding box filtering
+    # center format: (longitude, latitude) for OpenRouteService API
     try:
-        data = get_isochrones(center, ranges_minutes=(3,5,7,10))
+        center = (config.HOSPITAL_LNG, config.HOSPITAL_LAT)
+        print(f"Generating isochrones for center: {center}")
+        
+        # Generate isochrones for 2, 3, 5, and 7 minutes driving time
+        # Using smaller ranges to focus on campus area
+        # Note: Very small ranges (1 min) may not generate valid isochrones
+        # Bounding box filtering applied after API response to clip to campus
+        data = get_isochrones(center, ranges_minutes=(2,3,5,7), bbox=config.IITB_BBOX)
+        
+        print(f"Isochrones received: {len(data.get('features', []))} features")
+        
+        # Validate that we have features
+        if not data or not data.get("features") or len(data.get("features", [])) == 0:
+            print("Warning: No isochrone features returned")
+            return jsonify({
+                "error": "No isochrone data",
+                "detail": "API returned empty features. This might be due to very small time ranges or API limitations.",
+                "features": []
+            }), 200  # Return 200 but with empty features so frontend can handle gracefully
+            
     except Exception as e:
-        return jsonify({"error":"isochrones failed", "detail": str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Isochrones error: {str(e)}")
+        print(f"Traceback: {error_trace}")
+        return jsonify({
+            "error": "isochrones failed",
+            "detail": str(e),
+            "message": "Failed to generate isochrones. Please check server logs for details."
+        }), 500
     return jsonify(data)
 
 @api_bp.route("/analysis/frequency", methods=["GET"])

@@ -6,13 +6,21 @@ document.addEventListener("DOMContentLoaded", function() {
   const startOdometerDisplay = document.getElementById("start_odometer_display");
   const dateInput = document.getElementById("date");
 
-  // show current date/time in Date field (display only)
+  // show current date/time in Date field (display only) - updates every second
   function refreshDate() {
     const now = new Date();
-    dateInput.value = now.toLocaleString();
+    dateInput.value = now.toLocaleString('en-IN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
   }
   refreshDate();
-  setInterval(refreshDate, 30000);
+  setInterval(refreshDate, 1000); // Update every second
 
   // load locations and populate select
   async function loadLocations() {
@@ -79,7 +87,35 @@ document.addEventListener("DOMContentLoaded", function() {
 
       // update displayed date to computed date
       if (res.date) {
-        dateInput.value = new Date(res.date).toLocaleString();
+        const dateObj = new Date(res.date);
+        dateInput.value = dateObj.toLocaleString('en-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      }
+      
+      // Show trip summary with timing
+      const tripSummary = document.getElementById("tripSummary");
+      const tripDetails = document.getElementById("tripDetails");
+      if (res.departure_time && res.arrival_time && res.route_seconds) {
+        const depTime = new Date(res.departure_time);
+        const arrTime = new Date(res.arrival_time);
+        const durationMin = Math.floor(res.route_seconds / 60);
+        const durationSec = res.route_seconds % 60;
+        
+        tripDetails.innerHTML = `
+          <div><strong>Distance:</strong> ${res.distance_km || 0} km</div>
+          <div><strong>Duration:</strong> ${durationMin}m ${durationSec}s</div>
+          <div><strong>Departure:</strong> ${depTime.toLocaleTimeString()}</div>
+          <div><strong>Arrival:</strong> ${arrTime.toLocaleTimeString()}</div>
+          <div><strong>Odometer:</strong> ${res.start_odometer || 0} → ${res.next_odometer || 0} km</div>
+        `;
+        tripSummary.style.display = "block";
       }
 
       // draw route on routing map
@@ -91,8 +127,13 @@ document.addEventListener("DOMContentLoaded", function() {
         window.analysisMap.loadAnalysis();
       }
     } catch (err) {
-      alert("Submit failed: " + (err.error || JSON.stringify(err)));
-      console.error(err);
+      const errorMsg = err.error || err.message || JSON.stringify(err);
+      alert("Submit failed: " + errorMsg);
+      console.error("Form submission error:", err);
+      
+      // Hide trip summary on error
+      const tripSummary = document.getElementById("tripSummary");
+      if (tripSummary) tripSummary.style.display = "none";
     }
   });
 
