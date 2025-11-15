@@ -1,0 +1,7 @@
+Flask==2.2.5
+Flask-Cors==3.0.10
+SQLAlchemy==1.4.56
+requests==2.31.0
+python-dotenv==1.0.0
+shapely==2.0.1
+geojson==2.5.0

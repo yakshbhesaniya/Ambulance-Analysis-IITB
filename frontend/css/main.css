@@ -1,0 +1,4 @@
+body { background: #f8f9fa; }
+.mapbox { border-radius: 6px; }
+#tripForm { background: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+pre { white-space: pre-wrap; }
