@@ -52,7 +52,7 @@ This application uses a **robust 3-tier routing fallback system** to ensure rout
 
 1. **Clone or navigate to the project directory**
    ```bash
-   cd "d:/Mtech@IITB/Sem 1/GIS/Ambulance"
+   cd Ambulance
    ```
 
 2. **Install Python dependencies**
